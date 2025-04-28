@@ -18,7 +18,7 @@ class CustomToolbar(QWidget):
     #? Declaramos signals para que la main UI pueda interceptar y realizar la carga de las imagenes al programa
     image_opened_signal: pyqtSignal = pyqtSignal(str)
     image_saved_signal: pyqtSignal = pyqtSignal(str)
-    reset_preview_image_signal: pyqtSignal = pyqtSignal(str)
+    reset_preview_image_signal: pyqtSignal = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -58,6 +58,7 @@ class CustomToolbar(QWidget):
         self.menuForPreviewControl: QMenu = QMenu(self)
         self.menuForPreviewControl.setStyleSheet(Styles.Q_MENU_FOR_ITEMS)
         self.reset_preview_image_action: QAction = QAction("Reset Preview Image", self)
+        self.reset_preview_image_action.triggered.connect(self.buttonForPreviewControlHandler)
         self.buttonForPreviewControl.clicked.connect(self.mostrarPreviewMenuAlUsuario)
         self.menuForPreviewControl.addAction(self.reset_preview_image_action)
         layoutForButtonsAndText.addWidget(self.buttonForFileControl)
@@ -125,5 +126,5 @@ class CustomToolbar(QWidget):
                     selectedFilePath += '.png'
                 print(selectedFilePath)
                 self.image_opened_signal.emit(selectedFilePath)
-    def buttonForPreviewControl(self) -> None:
-        self.reset_preview_image_signal.emit("reset_image_preview_signal")
+    def buttonForPreviewControlHandler(self) -> None:
+        self.reset_preview_image_signal.emit()

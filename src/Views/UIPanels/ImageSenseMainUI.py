@@ -7,88 +7,107 @@
 # * aqui.
 # !-------------------------------------------
 from PyQt5.QtWidgets import (QMainWindow, QToolBar, QPushButton, QLabel,
-                             QHBoxLayout, QVBoxLayout, QWidget, QSplitter,
-                             QFrame, QSizePolicy)
-from PyQt5.QtCore import Qt, QSize, QMargins
-from PyQt5.QtGui import QFont
+                             QVBoxLayout, QWidget, QSplitter,
+                             QSizePolicy, QHBoxLayout)
+from PyQt5.QtCore import Qt, QSize
 
-import ImagePreviewCenterPane
-import ImageAnalysisRightPane
-import ImageModificationLeftPane
+import Views.UIPanels.ImagePreviewCenterPane as centerPane
+import Views.UIPanels.ImageAnalysisRightPane as rightPane
+import Views.UIPanels.ImageModificationLeftPane as leftPane
+from Models.ImageManager import ImageManager
+from Models.styles import Styles
+from Views.CustomWidgets.CustomToolbar import CustomToolbar
+from Views.UIPanels.ImageModificationLeftPane import LeftSideImageModificationPane
+from Views.UIPanels.ImagePreviewCenterPane import CenterSidePreview
 
 
 class ImageSenseMainUIApplication(QMainWindow):
+
     def __init__(self):
         super().__init__()
-        self.initUI()
+        self.imageManager: ImageManager = ImageManager()
+        self.centralWidgetForLayouts: QWidget = QWidget()
+        self.centralWidgetForLayouts.setStyleSheet("background-color: #BED6DF;")
+        self.setCentralWidget(self.centralWidgetForLayouts)
+        self.__init_UI__()
+        self.__connect_signals_from_toolbar__()
 
-    def initUI(self):
-        # Set window title and size
-        self.setWindowTitle('ImageSense Application')
-        self.resize(1024, 768)
+    def __init_UI__(self):
+        #? 1. En primera instancia, definimos el tamano de la UI en general, definiendo titulos.
+        self.setWindowTitle("ImageSense ― Analyze and Modify your Images")
+        self.setBaseSize(1024,768); self.setMinimumSize(1024,768)
+        self.setObjectName("ImageSenseMainUIApplication")
 
-        # Set margin/padding (10px on each side)
-        central_widget = QWidget(self)
-        self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(10, 10, 10, 10)
+        #? Definimos un widget para manejar el layout general de la aplicacion.
+        vBoxForGeneralLayout: QVBoxLayout = QVBoxLayout(self)
+        vBoxForGeneralLayout.setSpacing(20)
+        vBoxForGeneralLayout.setContentsMargins(10, 10, 10, 10)
+        vBoxForGeneralLayout.setAlignment(self, Qt.AlignVCenter)
+        vBoxForGeneralLayout.setDirection(QVBoxLayout.Direction.TopToBottom)
+        toolbarForApplication: CustomToolbar = CustomToolbar()
+        vBoxForGeneralLayout.addWidget(toolbarForApplication)
 
-        # Create toolbar with buttons aligned left and title aligned right
-        self.setupToolbar()
+        #? Definimos un widget de tipo HBOX para definir los paneles internos de la aplicacion
+        panelsWidget: QWidget = QWidget()
+        hBoxForPanelSection: QHBoxLayout = QHBoxLayout(panelsWidget)
+        hBoxForPanelSection.setSpacing(20)
 
-        # Create main content area with three panes
-        self.setupMainContentArea(main_layout)
+        #? 2. Definimos internamente en el widget tres widgets distintos para manejar cada uno de las layouts
+        self.leftPanel: QWidget = LeftSideImageModificationPane()
+        self.leftPanel.setStyleSheet("background-color: #2C3E50;")  # Dark blue
+        self.leftPanel.setMinimumWidth(325)
+        self.leftPanel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
-        # Set status bar
-        self.statusBar().showMessage('Ready')
+        self.middlePanel = CenterSidePreview()
+        self.middlePanel.setStyleSheet("background-color: #34495E;")  # Slightly lighter blue
+        self.middlePanel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
-    def setupToolbar(self):
-        # Create toolbar
-        toolbar = QToolBar()
-        toolbar.setMovable(False)
-        toolbar.setFloatable(False)
-        toolbar.setIconSize(QSize(16, 16))
 
-        # Add buttons to the left
-        file_controls_btn = QPushButton("File Controls")
-        preview_controls_btn = QPushButton("Preview Controls")
+        self.rightPanel = rightPane.RightSideImageAnalysisPane()
+        self.rightPanel.setStyleSheet("background-color: #1A2530;")  # Darker blue
+        self.rightPanel.setMinimumWidth(325)
+        self.rightPanel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
-        toolbar.addWidget(file_controls_btn)
-        toolbar.addWidget(preview_controls_btn)
 
-        # Add spacer to push the title to the right
-        spacer = QWidget()
-        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        toolbar.addWidget(spacer)
+        hBoxForPanelSection.addWidget(self.leftPanel)
+        hBoxForPanelSection.addWidget(self.middlePanel)
+        hBoxForPanelSection.addWidget(self.rightPanel)
 
-        # Add title to the right
-        title_label = QLabel("ImageSense")
-        title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        toolbar.addWidget(title_label)
+        hBoxForPanelSection.setStretchFactor(self.leftPanel, 3)
+        hBoxForPanelSection.setStretchFactor(self.middlePanel, 4)
+        hBoxForPanelSection.setStretchFactor(self.rightPanel, 3)
 
-        # Add toolbar to the main window
-        self.addToolBar(toolbar)
+        vBoxForGeneralLayout.addWidget(panelsWidget)
 
-    def setupMainContentArea(self, main_layout):
-        # Create a horizontal splitter for the three panes
-        splitter = QSplitter(Qt.Horizontal)
+        self.centralWidget().setLayout(vBoxForGeneralLayout)
 
-        # Left pane - Image Modification
-        left_pane = ImageModificationLeftPane.LeftSideImageModificationPane()
+    def __connect_signals_from_toolbar__(self) -> None:
+        #? 1. Nos Conectamos al toolbar para manejar sus eventos
+        toolbarInApplication = self.findChild(CustomToolbar)
+        if toolbarInApplication:
+            #? 1.1 Conectamos el listener del imageManager para cargar la imagen del sistema del usuario.
+            (toolbarInApplication.image_opened_signal
+             .connect(self.imageManager.connect_to_toolbar_image_url_communication))
+            #? 1.2 Conectamos el ResetActualImageAndPrevi method del middle pane para restablecer las vistas de la app
+            toolbarInApplication.reset_preview_image_signal.connect(self.middlePanel.resetActualImageAndPreview)
+            toolbarInApplication.reset_preview_image_signal.connect(self.imageManager.connect_to_toolbar_clear_image_register)
+            #? 1.3 Conectamos el listener para el ImageManager para guardar la imagen de la preview
+            toolbarInApplication.image_saved_signal.connect(self.imageManager.connect_to_toolbar_save_image_information)
+        #? 2. Conectamos los listeners del imageManager para que este tambien pueda comunicarse con el sistema externo
+        #? especificamente para mandar senales cuando imagen se carga
+        if self.imageManager:
+            #? 2.1 Conectamos un listener en el caso de tener una imagen cargada en el sistema para actualizacion de graficos
+            (self.imageManager.image_manager_orders_image_and_preview_update \
+             .connect(self.middlePanel.connect_image_changed_from_image_manager_after_loading))
+            (self.imageManager.image_manager_orders_image_and_preview_update_after_clearing_signal
+             .connect(self.middlePanel.resetActualImageAndPreview))
+        #? 3. Nos conectamos al Layout izquierdo, es decir, tenemos que conectar listeners para manejar los cambios de la UI
+        leftSidePanelInApplication = self.findChild(leftPane.LeftSideImageModificationPane)
+        if leftSidePanelInApplication:
+            leftSidePanelInApplication.image_needs_to_be_updated_signal.connect(self.middlePanel.updateDisplay)
+            leftSidePanelInApplication.image_needs_to_be_updated_signal.connect(self.imageManager.connect_to_left_pane_modification_image_storage)
 
-        # Center pane - Image Preview
-        center_pane = ImagePreviewCenterPane.CenterSidePreview()
-
-        # Right pane - Image Analysis
-        right_pane = ImageAnalysisRightPane.RightSideImageAnalysisPane()
-
-        # Add the panes to the splitter
-        splitter.addWidget(left_pane)
-        splitter.addWidget(center_pane)
-        splitter.addWidget(right_pane)
-
-        # Set initial sizes (ratio like 1:2:1)
-        splitter.setSizes([250, 500, 250])
-
-        # Add the splitter to the main layout
-        main_layout.addWidget(splitter)
+        #? 4. Nos conectamos con el right side para receptar el cambio
+        rightSidePanelInApplication = self.findChild(rightPane.RightSideImageAnalysisPane)
+        if rightSidePanelInApplication:
+            rightSidePanelInApplication.image_needs_to_be_updated_signal.connect(self.imageManager.connect_to_left_pane_modification_image_storage)
