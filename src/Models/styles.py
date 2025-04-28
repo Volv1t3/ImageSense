@@ -1,4 +1,10 @@
-
+#!-------------------------------------------
+# * Descripcion del Contenido
+# * @authors: Maria Granda Anazco, Santiago Arellano
+# * @date: 17-Apr-2025
+# * @description: El presente archivo incluye algunos de los estilos compartidos de la Main UI como constantes para
+# * en diversos sectores de la UI principal de la aplicacion.
+# !-------------------------------------------
 class Styles:
 
 

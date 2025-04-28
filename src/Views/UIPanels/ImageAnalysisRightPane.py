@@ -8,17 +8,17 @@
 # * de openCV y los modelos de Canny Edge Detection y Detection, ambos de la misma libreria para menejar mini modelos de
 # * IA para identificar secciones de imagenes.
 # !-------------------------------------------
-from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtCore import pyqtSignal, Qt, QThread
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtWidgets import (QWidget, QSizePolicy, QPushButton, QVBoxLayout, QSlider, QLabel, QHBoxLayout, QGridLayout)
-
+import cv2
+import numpy as np
 from Models.ImageManager import ImageManager
 
 
 class RightSideImageAnalysisPane(QWidget):
-
-    #? 1. Signals para manejar transferencia de informacion e imagenes
-    image_needs_to_be_updated_signal: pyqtSignal = pyqtSignal(QImage)
+    # ? 1. Signals para manejar transferencia de informacion e imagenes
+    preview_image_needs_to_be_updated: pyqtSignal = pyqtSignal(QImage)
 
     def __init__(self):
         super().__init__()
@@ -173,7 +173,6 @@ class RightSideImageAnalysisPane(QWidget):
         max_header_layout = QVBoxLayout()
         max_header_layout.setSpacing(0)
 
-
         mayor_informative_message_max_tresh_description = QLabel("Maximum Edge Detection Threshold")
         mayor_informative_message_max_tresh_description.setStyleSheet("""
             QLabel {
@@ -290,18 +289,217 @@ class RightSideImageAnalysisPane(QWidget):
         self.edge_detection_max_thresh = self.max_threshold_slider.value() / 100.0
 
     def handle_canny_edge_analysis_request(self) -> None:
-        #? 1. Calculamos los valores del tresh para el canny edge detection
+        # ? 1. Calculamos los valores del tresh para el canny edge detection
         self.edge_detection_min_thresh = self.min_threshold_slider.value() / 100.0
         self.edge_detection_max_thresh = self.max_threshold_slider.value() / 100.0
-        #? 2. Enviamos un request a la UI principal para recoger la imagen de afuera
-        image_from_storage: QImage = self.imageManager.internal_normal_image_holder
+        # ? 2. Enviamos un request a la UI principal para recoger la imagen de afuera
+        self.image_from_storage: QImage = self.imageManager.internal_normal_image_holder
         print("Canny Edge Analysis Requested")
-        image_modified: QImage = None
-        if image_from_storage:
-            self.image_needs_to_be_updated_signal.emit(image_from_storage)
+
+        # ? Aqui va la implementacion del canny edge detection.
+        if self.image_from_storage:
+            self.background_worker: CannyEdgeDetectionWorkerThread = CannyEdgeDetectionWorkerThread(
+                self.image_from_storage,
+                self.edge_detection_min_thresh,
+                self.edge_detection_max_thresh)
+            self.background_worker.onCannyEdgeResult.connect(self.onCannyEdgeResult)
+            self.background_worker.onError.connect(self.onError)
+            self.background_worker.start()
+
     def handle_object_detetion_analysis_request(self) -> None:
         print("Object Detection Analysis Requested")
         image_from_storage: QImage = self.imageManager.internal_normal_image_holder
-        image_modified: QImage = None
+
         if image_from_storage:
-            self.image_needs_to_be_updated_signal.emit(image_from_storage)
+            # ? Realizamos la llamada al background thread
+            self.background_worker: ObjectDetectionWorkerThread = ObjectDetectionWorkerThread(image_from_storage)
+            self.background_worker.onObjectDetectionResult.connect(self.onObjectDetectionResult)
+            self.background_worker.onError.connect(self.onError)
+            self.background_worker.start()
+
+    def onCannyEdgeResult(self, returnedImage: QImage):
+        print("Canny Edge Result Received")
+        self.preview_image_needs_to_be_updated.emit(returnedImage)
+
+    def onError(self, error_message):
+        print("Error in the effect")
+        print(error_message)
+
+    def onObjectDetectionResult(self, returnedImage: QImage):
+        print("Object Detection Result Received")
+        self.preview_image_needs_to_be_updated.emit(returnedImage)
+
+
+class CannyEdgeDetectionWorkerThread(QThread):
+    # https://pytutorial.com/python-opencv-cv2canny-edge-detection-guide/
+    # ? Signals for changes and their emission
+    onCannyEdgeResult: pyqtSignal = pyqtSignal(QImage)
+    onError: pyqtSignal = pyqtSignal(str)
+
+    def __init__(self, image_to_analize: QImage, min_thresh: float = 50.0, max_thresh: float = 50.0):
+        super().__init__()
+        self.image_to_analize = image_to_analize
+        self.min_thresh = min_thresh
+        self.max_thresh = max_thresh
+
+    def run(self):
+        try:
+            # ? 1. Inicializamos el modulo de Canny Edge Detection utilizando la informacion del arreglo de numpy de la
+            # ? imagen general, esto porque al final, cv2 utiliza arrays de numpy para manejarse cuando se tiene que pasar de
+            # ? openCV hacia QImage y viceversa
+            to_process_image_width = self.image_to_analize.width()
+            to_process_image_height = self.image_to_analize.height()
+
+            # ? 1.1. Convertimos la imagen a escala de grises
+            image_in_bits = self.image_to_analize.bits();
+            image_in_bits.setsize(to_process_image_height * to_process_image_width * 4)
+            image_as_array = np.frombuffer(image_in_bits, np.uint8).copy()
+            image_as_array = image_as_array.reshape((to_process_image_height, to_process_image_width, 4))
+
+            # ? 2. Convertimos la imagen al formato BGR que se utiliza en open CV y luego hacia grayscale
+            bgr_image = cv2.cvtColor(image_as_array, cv2.COLOR_RGBA2BGR)
+            gray_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2GRAY)
+
+            # ? 3. Aplicamos el algoritmo de Canny Edge Detection
+            edges = cv2.Canny(gray_image, int(max(0, int(self.min_thresh * 255))),
+                              int(max(0, int(self.max_thresh * 255))))
+
+            # ? 4. Convertimos la imagen de vuelta a RGBA para poder mostrarla en el widget
+            rgba_edges = cv2.cvtColor(edges, cv2.COLOR_GRAY2RGBA)
+            height, width, channel = rgba_edges.shape
+            bytes_per_line = 4 * width
+            q_image = QImage(rgba_edges.data, width, height, bytes_per_line, QImage.Format_RGBA8888).copy()
+            # ? 5. Emitimos el resultado
+            self.onCannyEdgeResult.emit(q_image)
+        except Exception as e:
+            self.onError.emit(str(e))
+
+
+class ObjectDetectionWorkerThread(QThread):
+    # ? Signals to update the UI
+    onObjectDetectionResult: pyqtSignal = pyqtSignal(QImage)
+    onError: pyqtSignal = pyqtSignal(str)
+
+    def __init__(self, image_to_analize: QImage):
+        super().__init__()
+        self.image_to_analize = image_to_analize
+
+    def run(self):
+        try:
+            # ? 1. Convertimos la QImage a un formato de numpy array para manejarlo con openCV
+            to_process_image_width = self.image_to_analize.width()
+            to_process_image_height = self.image_to_analize.height()
+
+            # ? 1.1. Convertimos los bits de la imagen a un numpy array
+            image_in_bits = self.image_to_analize.bits()
+            image_in_bits.setsize(to_process_image_height * to_process_image_width * 4)
+            image_as_array = np.frombuffer(image_in_bits, np.uint8).copy()
+            image_as_array = image_as_array.reshape((to_process_image_height, to_process_image_width, 4))
+
+            # ? 2. Convertimos la iamgen a BGR desde RGB para trabajar con openCV
+            bgr_image = cv2.cvtColor(image_as_array, cv2.COLOR_RGBA2BGR)
+            original_image = image_as_array.copy()
+            # ? 3. Cargamos los modelos precargados en el sistema
+            yolo_network = cv2.dnn.readNet("yolov4.weights", "yolov4.cfg")
+
+            # ? 4. Cargamos todas las caracteristicas y objetos cargados en el modelo de COCO
+            class_labels = []
+            with open("coco.names", "r") as f:
+                class_labels = [line.strip() for line in f.readlines()]
+
+            layer_names = yolo_network.getLayerNames()
+            output_layers = [layer_names[i - 1] for i in yolo_network.getUnconnectedOutLayers()]
+
+            colors = np.random.uniform(250, 255, size=(len(class_labels), 3))
+            # ? 4.1 Creamos un blob para la imagen analizada
+            blob = cv2.dnn.blobFromImage(
+                bgr_image,
+                size=(416, 416),
+                scalefactor=1 / 255.0,
+                swapRB=True,
+                crop=False
+            )
+
+            # ? 5. Realizamos la deteccion de objetos
+            yolo_network.setInput(blob)
+            output = yolo_network.forward(output_layers)
+            class_ids = []
+            confianza = []
+            boxes = []
+
+            height, width = bgr_image.shape[:2]
+
+            for out in output:
+                for detection in out:
+                    scores = detection[5:]
+                    class_id = np.argmax(scores)
+                    confidence = scores[class_id]
+
+                    if confidence > 0.2:
+                        center_x = int(detection[0] * width)
+                        center_y = int(detection[1] * height)
+                        w = int(detection[2] * width)
+                        h = int(detection[3] * height)
+
+                        # Rectangle coordinates
+                        x = int(center_x - w / 2)
+                        y = int(center_y - h / 2)
+
+                        boxes.append([x, y, w, h])
+                        confianza.append(float(confidence))
+                        class_ids.append(class_id)
+
+            indexes = cv2.dnn.NMSBoxes(boxes, confianza, 0.5, 0.4)
+            margin = 100
+            # Draw boxes
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            for i in range(len(boxes)):
+                if i in indexes:
+                    x, y, w, h = boxes[i]
+                    x = max(margin, min(x, width - margin))
+                    y = max(margin, min(y, height - margin))
+                    w = max(margin, min(w, width - x - margin))
+                    h = max(margin, min(h, height - y - margin))
+                    label = str(class_labels[class_ids[i]])
+                    confidence = confianza[i]
+                    color = colors[class_ids[i]]
+
+                    # Draw rectangle
+                    cv2.rectangle(
+                        original_image,
+                        (x, y),
+                        (x + w, y + h),
+                        color,
+                        2
+                    )
+
+                    # Draw label
+                    cv2.putText(
+                        original_image,
+                        f'{label} {confidence:.2f}',
+                        (x, y - 10),
+                        font,
+                        0.5,
+                        color,
+                        2
+                    )
+
+                    # Convert back to RGBA for Qt
+            rgba_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGBA)
+            height, width, channel = rgba_image.shape
+            bytes_per_line = 4 * width
+
+            # Create QImage from the processed image
+            q_image = QImage(
+                rgba_image.data,
+                width,
+                height,
+                bytes_per_line,
+                QImage.Format_RGBA8888
+            ).copy()
+
+            # Emit the result
+            self.onObjectDetectionResult.emit(q_image)
+
+        except Exception as e:
+            self.onError.emit(str(e))

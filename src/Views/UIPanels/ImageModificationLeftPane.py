@@ -16,11 +16,12 @@ from PyQt5.QtWidgets import (QWidget, QSizePolicy, QPushButton, QVBoxLayout)
 import cv2
 import numpy as np
 from Models.ImageManager import ImageManager
+from Views.Utils.ImageToCVUtils import ImageToCVUtils
 
 
 class LeftSideImageModificationPane(QWidget):
     # ! Signals para manejar comunicacion entre metodos de la UI
-    image_needs_to_be_updated_signal: pyqtSignal = pyqtSignal(QImage)
+    preview_image_needs_to_be_updated: pyqtSignal = pyqtSignal(QImage)
 
     def __init__(self):
         super().__init__()
@@ -57,6 +58,7 @@ class LeftSideImageModificationPane(QWidget):
                        color: #273B65;
                        font-family: 'Microsoft JhengHei UI', sans-serif;
                        font-size:  15px;
+                       text-wrap: pretty;
                        font-weight: bold;
                        border-radius: 10px;
                 
@@ -101,15 +103,13 @@ class LeftSideImageModificationPane(QWidget):
         if imageModifiedWithin:
             # ? 1. Realizamos la manipulacion de la imagen usango la transformacion primaria hacia
             # ? open cv compatible formats
-            cv_image_from_q_image = self.helperQImageToOpenCV(imageModifiedWithin)
+            cv_image_from_q_image = ImageToCVUtils.helperQImageToOpenCV(imageModifiedWithin)
 
             # ? 2. Aplicamos el efecto de burring mediante open cv
-            background_worker: BlurWorkerForBackgroundWork = BlurWorkerForBackgroundWork(cv_image_from_q_image);
-
-            background_worker.onSuccessfullyFinished.connect(self.onBlurResult)
-            background_worker.onErrorCondition.connect(self.onError)
-
-            background_worker.start()
+            self.background_worker: BlurWorkerForBackgroundWork = BlurWorkerForBackgroundWork(cv_image_from_q_image);
+            self.background_worker.onSuccessfullyFinished.connect(self.onBlurResult)
+            self.background_worker.onErrorCondition.connect(self.onError)
+            self.background_worker.start()
 
             # ? 3. Desactivamos el boton de blur
             self.blurButton.setEnabled(False)
@@ -121,13 +121,13 @@ class LeftSideImageModificationPane(QWidget):
         imageModifiedWithin: QImage = self.imageManager.internal_normal_image_holder
         if imageModifiedWithin:
             #? Realizamos la manipulacion de la imagen hacia open cv
-            cv_image_from_q_image = self.helperQImageToOpenCV(imageModifiedWithin)
+            cv_image_from_q_image = ImageToCVUtils.helperQImageToOpenCV(imageModifiedWithin)
 
             # ? Aplicamos el efecto de noise mediante open cv
-            background_worker: NoiseWorkerForBackgroundWork = NoiseWorkerForBackgroundWork(cv_image_from_q_image)
-            background_worker.onSuccessfullyFinished.connect(self.onNoiseResult)
-            background_worker.onErrorCondition.connect(self.onError)
-            background_worker.start()
+            self.background_worker: NoiseWorkerForBackgroundWork = NoiseWorkerForBackgroundWork(cv_image_from_q_image)
+            self.background_worker.onSuccessfullyFinished.connect(self.onNoiseResult)
+            self.background_worker.onErrorCondition.connect(self.onError)
+            self.background_worker.start()
             # ? Desactivamos el boton de noise
             self.noiseButton.setEnabled(False)
     def applyBWEffect(self):
@@ -137,13 +137,13 @@ class LeftSideImageModificationPane(QWidget):
         imageModifiedWithin: QImage = self.imageManager.internal_normal_image_holder
         if imageModifiedWithin:
             # ? Realizamos la manipulacion de la imagen hacia open cv
-            cv_image_from_q_image = self.helperQImageToOpenCV(imageModifiedWithin)
+            cv_image_from_q_image = ImageToCVUtils.helperQImageToOpenCV(imageModifiedWithin)
 
             # ? Aplicamos el efecto de blanco y negro mediante open cv
-            background_worker: BlackAndWhiteForBackgroundWork = BlackAndWhiteForBackgroundWork(cv_image_from_q_image)
-            background_worker.onSuccessfullyFinished.connect(self.onBWResult)
-            background_worker.onErrorCondition.connect(self.onError)
-            background_worker.start()
+            self.background_worker: BlackAndWhiteForBackgroundWork = BlackAndWhiteForBackgroundWork(cv_image_from_q_image)
+            self.background_worker.onSuccessfullyFinished.connect(self.onBWResult)
+            self.background_worker.onErrorCondition.connect(self.onError)
+            self.background_worker.start()
             # ? Desactivamos el boton de blanco y negro
             self.bwButton.setEnabled(False)
     def applyDistortionEffect(self):
@@ -153,55 +153,26 @@ class LeftSideImageModificationPane(QWidget):
         imageModifiedWithin: QImage = self.imageManager.internal_normal_image_holder
         if imageModifiedWithin:
             # ? Realizamos la manipulacion de la imagen hacia open cv
-            cv_image_from_q_image = self.helperQImageToOpenCV(imageModifiedWithin)
+            cv_image_from_q_image = ImageToCVUtils.helperQImageToOpenCV(imageModifiedWithin)
 
             # ? Aplicamos el efecto de distorcion mediante open cv
-            background_worker: DistortionWorkerForBackgroundWork = DistortionWorkerForBackgroundWork(cv_image_from_q_image)
-            background_worker.onSuccessfullyFinished.connect(self.onDistortionResult)
-            background_worker.onErrorCondition.connect(self.onError)
-            background_worker.start()
+            self.background_worker: DistortionWorkerForBackgroundWork = DistortionWorkerForBackgroundWork(cv_image_from_q_image)
+            self.background_worker.onSuccessfullyFinished.connect(self.onDistortionResult)
+            self.background_worker.onErrorCondition.connect(self.onError)
+            self.background_worker.start()
             # ? Desactivamos el boton de distorcion
             self.distortionButton.setEnabled(False)
-    def helperQImageToOpenCV(self, image: QImage) -> np.ndarray:
-        """Method defined such that our project is capable of handling transformations between open cv and
-        Qt, one is for image processing and another is for image displaying"""
-        # ? 1. Debemos de revisar que la imagen que tengamos este en el formato adecuado, en donde los canales de
-        # ? RBG son RGB888
-        if image.format() != QImage.Format_RGBA8888:
-            image = image.convertToFormat(QImage.Format_RGBA8888)
-
-        # ? 2. Para trabajar con open cv, necesitamos tener el tamano de la pantalla
-        image_width: float = image.width()
-        image_height: float = image.height()
-
-        # ? 3.Tomamos pos bits de la imagen y  contamos
-        color_bits = image.constBits()
-        color_bits.setsize(image.byteCount())
-
-        # ? 4. Armamos el array interno
-        array_of_bits = np.array(color_bits).reshape(image_height, image_width, 4)
-
-        return array_of_bits
-
-    def helperOpenCVToQImage(self, cv_image: np.ndarray) -> QImage:
-        """Method defined such that our project is capable of converting between a modifid nd array into a
-        UI friendly QImage such that it can be displayed on the user's side."""
-        new_qimage_height, new_qimage_width = cv_image.shape[:2]
-        new_qimage_from_array = QImage(cv_image.data, new_qimage_width, new_qimage_height, (4 * new_qimage_width),
-                                       QImage.Format_RGBA8888)
-
-        return new_qimage_from_array.copy()
 
     def onBlurResult(self, result_cv_image: np.ndarray):
         """Method used to communicate the returned image from the worker thread back to the main thread and
         transform that image into a QImage"""
         try:
             # ? 1. Convertir el resultado de la imagen de open cv a QImage
-            new_qimage_from_cv = self.helperOpenCVToQImage(result_cv_image)
+            new_qimage_from_cv = ImageToCVUtils.helperOpenCVToQImage(result_cv_image)
             # ? 2. Activamos de nuevo el boton
             self.blurButton.setEnabled(True)
             # ? 2. Emitir el resultado de la imagen
-            self.image_needs_to_be_updated_signal.emit(new_qimage_from_cv)
+            self.preview_image_needs_to_be_updated.emit(new_qimage_from_cv)
         except Exception as e:
             print("Error in the result of the blur effect")
             print(e)
@@ -214,11 +185,11 @@ class LeftSideImageModificationPane(QWidget):
         transform that image into a QImage"""
         try:
             # ? 1. Convertir el resultado de la imagen de open cv a QImage
-            new_qimage_from_cv = self.helperOpenCVToQImage(result_cv_image)
+            new_qimage_from_cv = ImageToCVUtils.helperOpenCVToQImage(result_cv_image)
             # ? 2. Activamos de nuevo el boton
             self.noiseButton.setEnabled(True)
             # ? 2. Emitir el resultado de la imagen
-            self.image_needs_to_be_updated_signal.emit(new_qimage_from_cv)
+            self.preview_image_needs_to_be_updated.emit(new_qimage_from_cv)
         except Exception as e:
             print("Error in the result of the noise effect")
             print(e)
@@ -228,11 +199,11 @@ class LeftSideImageModificationPane(QWidget):
         transform that image into a QImage"""
         try:
             # ? 1. Convertir el resultado de la imagen de open cv a QImage
-            new_qimage_from_cv = self.helperOpenCVToQImage(result_cv_image)
+            new_qimage_from_cv = ImageToCVUtils.helperOpenCVToQImage(result_cv_image)
             # ? 2. Activamos de nuevo el boton
             self.bwButton.setEnabled(True)
             # ? 2. Emitir el resultado de la imagen
-            self.image_needs_to_be_updated_signal.emit(new_qimage_from_cv)
+            self.preview_image_needs_to_be_updated.emit(new_qimage_from_cv)
         except Exception as e:
             print("Error in the result of the black and white effect")
             print(e)
@@ -242,11 +213,11 @@ class LeftSideImageModificationPane(QWidget):
         transform that image into a QImage"""
         try:
             # ? 1. Convertir el resultado de la imagen de open cv a QImage
-            new_qimage_from_cv = self.helperOpenCVToQImage(result_cv_image)
+            new_qimage_from_cv = ImageToCVUtils.helperOpenCVToQImage(result_cv_image)
             # ? 2. Activamos de nuevo el boton
             self.distortionButton.setEnabled(True)
             # ? 2. Emitir el resultado de la imagen
-            self.image_needs_to_be_updated_signal.emit(new_qimage_from_cv)
+            self.preview_image_needs_to_be_updated.emit(new_qimage_from_cv)
         except Exception as e:
             print("Error in the result of the distortion effect")
             print(e)

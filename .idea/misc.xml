@@ -3,7 +3,6 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.10 (ImageSense)" />
   </component>
-  <component name="KubernetesApiProvider"><![CDATA[{}]]></component>
   <component name="MaterialThemeProjectNewConfig">
     <option name="metadata">
       <MTProjectMetadataState>

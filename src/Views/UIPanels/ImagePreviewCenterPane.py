@@ -183,9 +183,24 @@ class CenterSidePreview(QWidget):
         self.original_image_label.setText("No Image Loaded")
         self.transformed_image_label.setText("No Image Preview")
         self.updateDisplay(None)
-    def connect_image_changed_from_image_manager_after_loading(self, image: QImage) -> None:
+    def updatePreviewImage(self, image: QImage):
         """
         Este metodo se encarga de actualizar la imagen de preview, ademas de actualizar el texto de los labels de las
         imagenes.
         """
-        self.updateDisplay(image)
+        if image and not image.isNull():
+            self.transformed_image = image
+            pixmap = QPixmap.fromImage(image)
+            container_size = self.original_image_container.size()
+            display_size = QSize(container_size.width(), container_size.height())
+            scaled_pixmap = pixmap.scaled(
+                display_size,
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation
+            )
+            self.transformed_image_label.setPixmap(scaled_pixmap)
+            self.original_image_label.setText("")
+            self.original_image_label.setAlignment(Qt.AlignCenter)
+        else:
+            self.original_image_label.setText("No Image Loaded")
+            self.transformed_image_label.setText("No Image Preview")

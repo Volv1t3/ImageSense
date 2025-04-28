@@ -86,8 +86,8 @@ class ImageSenseMainUIApplication(QMainWindow):
         toolbarInApplication = self.findChild(CustomToolbar)
         if toolbarInApplication:
             #? 1.1 Conectamos el listener del imageManager para cargar la imagen del sistema del usuario.
-            (toolbarInApplication.image_opened_signal
-             .connect(self.imageManager.connect_to_toolbar_image_url_communication))
+            toolbarInApplication.image_opened_signal.connect(self.imageManager.connect_to_toolbar_image_url_communication)
+
             #? 1.2 Conectamos el ResetActualImageAndPrevi method del middle pane para restablecer las vistas de la app
             toolbarInApplication.reset_preview_image_signal.connect(self.middlePanel.resetActualImageAndPreview)
             toolbarInApplication.reset_preview_image_signal.connect(self.imageManager.connect_to_toolbar_clear_image_register)
@@ -97,17 +97,19 @@ class ImageSenseMainUIApplication(QMainWindow):
         #? especificamente para mandar senales cuando imagen se carga
         if self.imageManager:
             #? 2.1 Conectamos un listener en el caso de tener una imagen cargada en el sistema para actualizacion de graficos
-            (self.imageManager.image_manager_orders_image_and_preview_update \
-             .connect(self.middlePanel.connect_image_changed_from_image_manager_after_loading))
+            (self.imageManager.image_manager_dictates_preview_image_update \
+             .connect(self.middlePanel.updatePreviewImage))
             (self.imageManager.image_manager_orders_image_and_preview_update_after_clearing_signal
              .connect(self.middlePanel.resetActualImageAndPreview))
+            (self.imageManager.image_manager_dictates_actual_image_update.connect(self.middlePanel.updateDisplay))
         #? 3. Nos conectamos al Layout izquierdo, es decir, tenemos que conectar listeners para manejar los cambios de la UI
         leftSidePanelInApplication = self.findChild(leftPane.LeftSideImageModificationPane)
         if leftSidePanelInApplication:
-            leftSidePanelInApplication.image_needs_to_be_updated_signal.connect(self.middlePanel.updateDisplay)
-            leftSidePanelInApplication.image_needs_to_be_updated_signal.connect(self.imageManager.connect_to_left_pane_modification_image_storage)
+            leftSidePanelInApplication.preview_image_needs_to_be_updated.connect(self.middlePanel.updatePreviewImage)
+            leftSidePanelInApplication.preview_image_needs_to_be_updated.connect(self.imageManager.connect_to_left_pane_modification_image_storage)
 
         #? 4. Nos conectamos con el right side para receptar el cambio
         rightSidePanelInApplication = self.findChild(rightPane.RightSideImageAnalysisPane)
         if rightSidePanelInApplication:
-            rightSidePanelInApplication.image_needs_to_be_updated_signal.connect(self.imageManager.connect_to_left_pane_modification_image_storage)
+            rightSidePanelInApplication.preview_image_needs_to_be_updated.connect(self.imageManager.connect_to_left_pane_modification_image_storage)
+            rightSidePanelInApplication.preview_image_needs_to_be_updated.connect(self.middlePanel.updatePreviewImage)

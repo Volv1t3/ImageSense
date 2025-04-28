@@ -12,13 +12,4 @@
   <component name="PackageRequirementsSettings">
     <option name="versionSpecifier" value="Greater or equal (&gt;=x.y.z)" />
   </component>
-  <component name="PyNamespacePackagesService">
-    <option name="namespacePackageFolders">
-      <list>
-        <option value="$MODULE_DIR$/src/Views/UIPanels" />
-        <option value="$MODULE_DIR$/src/Views" />
-        <option value="$MODULE_DIR$/src/Models" />
-      </list>
-    </option>
-  </component>
 </module>
