@@ -10,11 +10,14 @@
 
 ***
 
-<div style="display: flex; justify-content: center; align-content: center"> 
+<div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin: 20px 0;">
 
-![Python](https://img.shields.io/badge/python-3.11.9-blue.svg)
-![PyQt5](https://img.shields.io/badge/PyQt5-latest-green.svg)
-![OpenCV](https://img.shields.io/badge/OpenCV-latest-red.svg)
+
+![Python](https://img.shields.io/badge/python-%233776AB.svg?style=for-the-badge&logo=python&logoColor=white)
+
+![PyQt5](https://img.shields.io/badge/PyQt5-%2341CD52.svg?style=for-the-badge&logo=qt&logoColor=white)
+
+![OpenCV](https://img.shields.io/badge/opencv-%235C3EE8.svg?style=for-the-badge&logo=opencv&logoColor=white)
 
 </div>
 
