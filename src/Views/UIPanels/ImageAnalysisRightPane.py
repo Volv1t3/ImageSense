@@ -16,11 +16,43 @@ import numpy as np
 from Models.ImageManager import ImageManager
 
 
+
 class RightSideImageAnalysisPane(QWidget):
+    """
+    The following contains information about the right side, image analysis pane that handles the Canny
+    edge detection used for the image, as well as Object Detection based on a YOLOv4 model pretrained for this
+    task.
+    
+    As such, this class handles a series of background threads designed to extend the QThread class that handles 
+    background tasks such as image processing.
+    """
     # ? 1. Signals para manejar transferencia de informacion e imagenes
     preview_image_needs_to_be_updated: pyqtSignal = pyqtSignal(QImage)
 
     def __init__(self):
+        """
+        Initializes the RightSideImageAnalysisPane widget for image analysis functionality.
+        
+        This constructor sets up the initial state of the image analysis panel, including:
+        1. Calls the parent QWidget constructor
+        2. Creates an ImageManager instance for handling image operations
+        3. Initializes edge detection threshold values (min and max)
+        4. Declares UI control elements (sliders and buttons) that will be populated in __init_UI__
+        5. Calls __init_UI__ to create and configure the user interface
+        
+        Instance Variables:
+            - imageManager (ImageManager): Manages image loading and processing operations
+            - edge_detection_min_thresh (float): Minimum threshold value for Canny edge detection
+            - edge_detection_max_thresh (float): Maximum threshold value for Canny edge detection
+            - min_threshold_slider (QSlider): Slider control for minimum threshold adjustment
+            - max_threshold_slider (QSlider): Slider control for maximum threshold adjustment
+            - edge_detection_button (QPushButton): Button to trigger edge detection analysis
+            - object_detection_button (QPushButton): Button to trigger object detection analysis
+            
+        No parameters required.
+        
+        :return : None.
+        """
         super().__init__()
         self.imageManager: ImageManager = ImageManager()
         self.edge_detection_min_thresh: float = 0.0
@@ -32,6 +64,34 @@ class RightSideImageAnalysisPane(QWidget):
         self.__init_UI__()
 
     def __init_UI__(self) -> None:
+        """
+        Initializes and configures the user interface components of the image analysis panel.
+        
+        This method sets up a comprehensive UI layout for image analysis functionality, creating
+        a right-side panel with various controls for image processing. The panel includes edge
+        detection controls and object detection capabilities.
+        
+        The method constructs the following main components:
+        
+        - A main panel widget with custom styling and minimum width requirements
+        - An edge detection button for triggering Canny edge analysis
+        - Two threshold control groups (minimum and maximum) for edge detection sensitivity
+        - Slider controls for adjusting the threshold values (0-100)
+        - An object detection button for classification analysis
+        
+        The layout is organized vertically with proper spacing and margins, using a combination
+        of QVBoxLayout and QHBoxLayout managers. All UI elements are styled consistently with
+        a blue color scheme and modern design elements including rounded corners and hover effects.
+        
+        All components are connected to their respective event handlers and configured with
+        appropriate size policies and alignments to ensure proper display and functionality.
+        
+        Parameters:
+            None
+            
+        Returns:
+            None
+        """
         # ? 1. Creamos el layout principal
         self.image_analysis_panel = QWidget(self)
         self.image_analysis_panel.setMinimumWidth(325)
@@ -289,6 +349,35 @@ class RightSideImageAnalysisPane(QWidget):
         self.edge_detection_max_thresh = self.max_threshold_slider.value() / 100.0
 
     def handle_canny_edge_analysis_request(self) -> None:
+        """
+        Handles the request to perform Canny edge detection analysis on the currently loaded image.
+        
+        This method initiates the edge detection process by first calculating the threshold values
+        from the UI slider controls, converting them from percentage values (0-100) to normalized
+        values (0.0-1.0). It then retrieves the current image from storage and creates a background
+        worker thread to perform the actual edge detection processing.
+        
+        The edge detection process is performed asynchronously using a CannyEdgeDetectionWorkerThread
+        to prevent UI freezing during computation. The worker thread applies the Canny edge detection
+        algorithm using the specified minimum and maximum threshold values.
+        
+        The method sets up the necessary signal connections to handle both successful results and
+        errors from the background processing:
+        
+        - onCannyEdgeResult: Receives the processed image with detected edges
+        - onError: Handles any errors that occur during processing
+        
+        No parameters are required as all necessary values are obtained from class instance variables
+        and UI elements.
+        
+        Returns:
+            None
+            
+        Signals:
+        
+            - Emits the processed image through preview_image_needs_to_be_updated signal when complete
+            - Prints status messages to console for debugging purposes
+        """
         # ? 1. Calculamos los valores del tresh para el canny edge detection
         self.edge_detection_min_thresh = self.min_threshold_slider.value() / 100.0
         self.edge_detection_max_thresh = self.max_threshold_slider.value() / 100.0
@@ -307,6 +396,33 @@ class RightSideImageAnalysisPane(QWidget):
             self.background_worker.start()
 
     def handle_object_detetion_analysis_request(self) -> None:
+        """
+        Handles the request to perform object detection analysis on the currently loaded image.
+    
+        This method initiates the object detection process by retrieving the current image from
+        the ImageManager's internal storage. It utilizes a YOLOv4-based detection system implemented
+        through OpenCV's deep neural network module.
+    
+        The actual processing is performed asynchronously in a background thread using the
+        ObjectDetectionWorkerThread class to prevent UI freezing during computation. The worker
+        thread processes the image through a pre-trained neural network model capable of
+        detecting and classifying multiple objects within the image.
+    
+        The method sets up signal connections to handle both successful results and errors:
+        
+        - onObjectDetectionResult: Receives the processed image with detected objects
+        - onError: Handles any errors that occur during processing
+    
+        No parameters are required as the image is obtained from the class's ImageManager instance.
+    
+        Returns:
+            None
+    
+        Signals:
+        
+            - Emits the processed image through preview_image_needs_to_be_updated signal upon completion
+            - Prints status messages to console for debugging purposes
+        """
         print("Object Detection Analysis Requested")
         image_from_storage: QImage = self.imageManager.internal_normal_image_holder
 
@@ -332,18 +448,75 @@ class RightSideImageAnalysisPane(QWidget):
 
 
 class CannyEdgeDetectionWorkerThread(QThread):
-    # https://pytutorial.com/python-opencv-cv2canny-edge-detection-guide/
-    # ? Signals for changes and their emission
+    """
+    A worker thread class that performs Canny edge detection on images asynchronously.
+    
+    This class extends QThread to perform image processing operations in the background,
+    preventing UI freezes during computation. It implements the Canny edge detection
+    algorithm using OpenCV, converting between Qt and OpenCV image formats as needed.
+    
+    The class processes images through several steps:
+    
+    1. Converts QImage to numpy array format
+    2. Transforms the image to grayscale
+    3. Applies Canny edge detection with configurable thresholds
+    4. Converts the result back to QImage format for display
+    
+    Signals:
+        onCannyEdgeResult (QImage): Emitted when edge detection is complete
+        onError (str): Emitted when an error occurs during processing
+    """
+
     onCannyEdgeResult: pyqtSignal = pyqtSignal(QImage)
     onError: pyqtSignal = pyqtSignal(str)
 
     def __init__(self, image_to_analize: QImage, min_thresh: float = 50.0, max_thresh: float = 50.0):
+        """
+        Initialize the Canny edge detection worker thread.
+    
+        Parameters:
+            image_to_analize (QImage): The source image to process
+            min_thresh (float): Minimum threshold for edge detection (0.0-100.0)
+            max_thresh (float): Maximum threshold for edge detection (0.0-100.0)
+        """
         super().__init__()
         self.image_to_analize = image_to_analize
         self.min_thresh = min_thresh
         self.max_thresh = max_thresh
 
     def run(self):
+        """
+        Executes the Canny edge detection algorithm on the provided image in a background thread.
+    
+        This method performs a series of image processing operations to detect edges in the input image.
+        The process begins by extracting the raw image data from the QImage format and converting it
+        into a numpy array suitable for OpenCV operations. The image undergoes several transformations,
+        including conversion to grayscale and application of the Canny edge detection algorithm with
+        the specified threshold values.
+    
+        The method handles the complete pipeline of image processing:
+        First, it extracts the dimensions of the input image and converts the QImage data into a numpy
+        array format. This array is then reshaped according to the image dimensions and channel count.
+        Next, it performs color space conversions, transforming the image from RGBA to BGR (OpenCV's
+        preferred format) and then to grayscale. The Canny edge detection algorithm is applied using
+        the pre-configured minimum and maximum threshold values, which are scaled from their normalized
+        form (0-1) to the required pixel intensity range (0-255).
+    
+        Finally, the resulting edge map is converted back to RGBA format for compatibility with Qt's
+        display system, and a new QImage is created from the processed data.
+    
+        The method uses instance variables:
+            - self.image_to_analize: Source QImage to process
+            - self.min_thresh: Minimum threshold for edge detection (0.0-1.0)
+            - self.max_thresh: Maximum threshold for edge detection (0.0-1.0)
+    
+        Signals:
+            - onCannyEdgeResult: Emits the processed QImage containing the detected edges
+            - onError: Emits a string message if an error occurs during processing
+    
+        Raises:
+            Any exceptions during processing are caught and emitted through the onError signal
+        """
         try:
             # ? 1. Inicializamos el modulo de Canny Edge Detection utilizando la informacion del arreglo de numpy de la
             # ? imagen general, esto porque al final, cv2 utiliza arrays de numpy para manejarse cuando se tiene que pasar de
@@ -377,15 +550,61 @@ class CannyEdgeDetectionWorkerThread(QThread):
 
 
 class ObjectDetectionWorkerThread(QThread):
-    # ? Signals to update the UI
+    """
+    A worker thread class that performs object detection on images asynchronously using YOLOv4.
+    
+    This class extends QThread to perform complex image processing operations in the background,
+    preventing UI freezes during computation. It implements the YOLOv4 object detection algorithm
+    using OpenCV's deep neural network module to identify and classify objects within images.
+    
+    The class processes images through several steps:
+    1. Converts QImage to OpenCV-compatible format
+    2. Loads pre-trained YOLOv4 model and COCO dataset classes
+    3. Processes image through neural network to detect objects
+    4. Draws bounding boxes and labels around detected objects
+    5. Converts results back to QImage format for display
+    
+    Signals:
+        onObjectDetectionResult (QImage): Emitted when object detection is complete
+        onError (str): Emitted when an error occurs during processing
+    """
     onObjectDetectionResult: pyqtSignal = pyqtSignal(QImage)
     onError: pyqtSignal = pyqtSignal(str)
 
     def __init__(self, image_to_analize: QImage):
+        """
+        Initialize the object detection worker thread.
+        
+        This constructor sets up a new thread instance for processing images using
+        YOLOv4 object detection. It stores the input image for later processing
+        in the run method and initializes the base QThread functionality.
+        
+        Parameters:
+            image_to_analize (QImage): The source image on which to perform object detection.
+                                      This image will be processed when the thread is started.
+        """
         super().__init__()
         self.image_to_analize = image_to_analize
 
     def run(self):
+        """
+        Execute the Canny edge detection processing in the background thread.
+        
+        This method performs the following operations:
+        
+        1. Converts the QImage to a numpy array format suitable for OpenCV
+        2. Transforms the image from RGBA to BGR color space
+        3. Converts the image to grayscale for edge detection
+        4. Applies the Canny edge detection algorithm with normalized thresholds
+        5. Converts the resulting edge map back to RGBA format
+        6. Creates a new QImage from the processed data
+        
+        The method emits either:
+        - onCannyEdgeResult signal with the processed image on success
+        - onError signal with error message on failure
+        
+        No parameters required as it uses instance variables set in __init__.
+        """
         try:
             # ? 1. Convertimos la QImage a un formato de numpy array para manejarlo con openCV
             to_process_image_width = self.image_to_analize.width()
@@ -408,11 +627,16 @@ class ObjectDetectionWorkerThread(QThread):
             with open("coco.names", "r") as f:
                 class_labels = [line.strip() for line in f.readlines()]
 
-            layer_names = yolo_network.getLayerNames()
+            layer_names = yolo_network.getLayerNames() #Obtenemos todas las layers dentro de la architectura del modelo de NN.
             output_layers = [layer_names[i - 1] for i in yolo_network.getUnconnectedOutLayers()]
+            # esta linea toma el nombre de todas las layers que no estan contectadas con otras, es decir outputs.
 
             colors = np.random.uniform(250, 255, size=(len(class_labels), 3))
-            # ? 4.1 Creamos un blob para la imagen analizada
+            # ? 4.1 Creamos un blob para la imagen analizada: Un blob es un Binary Large Object, el cual es una
+            # ? estrcutura de tipo tensor que tiene dentro de si los valores de una cantidad de imagenes (batc size),
+            # ? canales de colores, altura y ancho, etc. En este caso, normalizamos el tamano de los pixeles a un rango de 0 a
+            # ? 1 dado que el scale es de 1/255.0. En si, este tipo de dato es util para comunicar datos a una Neural
+            # ? Network prestablecida.
             blob = cv2.dnn.blobFromImage(
                 bgr_image,
                 size=(416, 416),
@@ -421,52 +645,65 @@ class ObjectDetectionWorkerThread(QThread):
                 crop=False
             )
 
-            # ? 5. Realizamos la deteccion de objetos
+            # ? 5. Cargamos los parametros de la imagen a analizar dentro del sistema de YOLO para su anailsis,
             yolo_network.setInput(blob)
             output = yolo_network.forward(output_layers)
             class_ids = []
-            confianza = []
+            confianzas = []
             boxes = []
 
             height, width = bgr_image.shape[:2]
 
+            # ? 6. Analizamos los resultados moviendonos a traves de todas las capas de salida que tiene este modelo de
+            # ? YOLO. Cada capa de salida tiene su propia "detection" que es un arreglo de valores que contiene informacion de
+            # ? salida del modelo.
             for out in output:
                 for detection in out:
+                    #? Aqui tomamos los valores del cinco en adelante, los cuales son las probabilidades de cada categoria de
+                    #? salida
                     scores = detection[5:]
-                    class_id = np.argmax(scores)
-                    confidence = scores[class_id]
+                    class_id = np.argmax(scores) #index de la mayor probabilidad
+                    confidence = scores[class_id] # tomamos el valor de la mayor probabilidad
 
+                    #? Filtramos aquellos valores de confianza que sean mayores a 0.2 o 20% de fiabilidad.
                     if confidence > 0.2:
+                        #? Aqui calculamos el centro de la deteccion, basandonos en la posicion retornada en el objeto de
+                        #? deteccion de YOLO pasando de 0-1 al valor del pixel correcto.
                         center_x = int(detection[0] * width)
                         center_y = int(detection[1] * height)
+                        #? Aqui calculamos el largo y ancho del objeto, que podemos usar para manejar el bounding boxes.
                         w = int(detection[2] * width)
                         h = int(detection[3] * height)
 
-                        # Rectangle coordinates
+                        #? Aqui calculamos la posicion real del bounding box que vamos a usar para modificar la imagen
                         x = int(center_x - w / 2)
                         y = int(center_y - h / 2)
 
                         boxes.append([x, y, w, h])
-                        confianza.append(float(confidence))
+                        confianzas.append(float(confidence))
                         class_ids.append(class_id)
 
-            indexes = cv2.dnn.NMSBoxes(boxes, confianza, 0.5, 0.4)
-            print(f"Found {len(indexes)} objects")
+            # ? 7. Aqui removemos aquellas boxes que esten en un overlap grande entre si,la idea es que no debemos tener
+            # ? detecciones multiples en el mismo objeto
+            indexes = cv2.dnn.NMSBoxes(boxes, confianzas, 0.5, 0.4)
             margin = 100
-            # Draw boxes
+            #? Dbujmos las cajas que vamos a usar para demostrar la posicion de cada una de las detecciones, para esto
+            #? iteramos sobre el arreglo de bounding boxes que se han detectado dentro del sistema.
             font = cv2.FONT_HERSHEY_SIMPLEX
             for i in range(len(boxes)):
                 if i in indexes:
+                    #? Aqui calculamos las posicioens maximas de cada una de los bounding boxes teniendo en cuenta que ponemos
+                    #? un margen de 100 px de trabajo, esto lo hacemos ya que en algunos casos, teniamos el problema que
+                    #? algunas cajas se salian del area de trabajo.
                     x, y, w, h = boxes[i]
                     x = max(margin, min(x, width - margin))
                     y = max(margin, min(y, height - margin))
                     w = max(margin, min(w, width - x - margin))
                     h = max(margin, min(h, height - y - margin))
                     label = str(class_labels[class_ids[i]])
-                    confidence = confianza[i]
+                    confidence = confianzas[i]
                     color = colors[class_ids[i]].astype(int).tolist()
 
-                    # Draw rectangle
                     cv2.rectangle(
                         bgr_image,
                         (x, y),
@@ -475,7 +712,7 @@ class ObjectDetectionWorkerThread(QThread):
                         2
                     )
 
-                    # Draw label
+                    #? Aqui le colocamos la etiqueta a la cajita que acabamos de poner en la imagen
                     cv2.putText(
                         bgr_image,
                         f'{label} {confidence:.2f}',
@@ -486,12 +723,12 @@ class ObjectDetectionWorkerThread(QThread):
                         2
                     )
 
-                    # Convert back to RGBA for Qt
+            # ? 8. Pasamos la iamgen anterior a RGBA de nuevo para ser usada en QImage.
             rgba_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGBA)
             height, width, channel = rgba_image.shape
             bytes_per_line = 4 * width
 
-            # Create QImage from the processed image
+            #? 9. Usamos la imagen transformada para crear una QImage
             q_image = QImage(
                 rgba_image.data,
                 width,
@@ -500,8 +737,8 @@ class ObjectDetectionWorkerThread(QThread):
                 QImage.Format_RGBA8888
             ).copy()
 
-            # Emit the result
+            #? Como ultimo paso enviamos la imagen reconstruida hacia la UI mediante signals para que se actualice
+            #? la preview de la imagen modificada.
             self.onObjectDetectionResult.emit(q_image)
-
         except Exception as e:
             self.onError.emit(str(e))

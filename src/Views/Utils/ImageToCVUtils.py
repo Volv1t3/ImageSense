@@ -6,8 +6,18 @@ import numpy as np
 class ImageToCVUtils:
     @staticmethod
     def helperQImageToOpenCV(image: QImage) -> np.ndarray:
-        """Method defined such that our project is capable of handling transformations between open cv and
-        Qt, one is for image processing and another is for image displaying"""
+        """Converts a QImage object to an OpenCV-compatible numpy array format.
+        
+        This method handles the transformation of Qt image formats to OpenCV format for image processing.
+        It ensures proper color channel handling (RGBA8888) and creates a numpy array representation
+        of the image data.
+        
+        Args:
+            image (QImage): The source Qt image to be converted
+            
+        Returns:
+            np.ndarray: A numpy array representing the image in RGBA format with shape (height, width, 4)
+        """
         # ? 1. Debemos de revisar que la imagen que tengamos este en el formato adecuado, en donde los canales de
         # ? RBG son RGB888
         if image.format() != QImage.Format_RGBA8888:
@@ -27,8 +37,18 @@ class ImageToCVUtils:
         return array_of_bits
     @staticmethod
     def helperOpenCVToQImage(cv_image: np.ndarray) -> QImage:
-        """Method defined such that our project is capable of converting between a modifid nd array into a
-        UI friendly QImage such that it can be displayed on the user's side."""
+        """Converts an OpenCV numpy array to a QImage format.
+        
+        This method transforms an OpenCV-compatible numpy array into a Qt-compatible QImage
+        for display purposes in the user interface. The conversion preserves the RGBA format
+        and properly handles the image dimensions.
+        
+        Args:
+            cv_image (np.ndarray): The source numpy array containing image data in RGBA format
+            
+        Returns:
+            QImage: A Qt image object suitable for UI display
+        """
         new_qimage_height, new_qimage_width = cv_image.shape[:2]
         new_qimage_from_array = QImage(cv_image.data, new_qimage_width, new_qimage_height, (4 * new_qimage_width),
                                        QImage.Format_RGBA8888)

@@ -20,6 +20,15 @@ from Views.Utils.ImageToCVUtils import ImageToCVUtils
 
 
 class LeftSideImageModificationPane(QWidget):
+    """A PyQt5 widget that provides image modification functionality in the left pane of the application.
+
+    This class implements a panel containing buttons for various image effects including blur, noise,
+    black & white, and distortion. Each effect is processed in a separate background thread to maintain
+    UI responsiveness.
+
+    Attributes:
+        preview_image_needs_to_be_updated (pyqtSignal): Signal emitted when the preview image needs updating
+    """
     # ! Signals para manejar comunicacion entre metodos de la UI
     preview_image_needs_to_be_updated: pyqtSignal = pyqtSignal(QImage)
 
@@ -94,7 +103,15 @@ class LeftSideImageModificationPane(QWidget):
         self.setLayout(main_layout)
 
     def applyBlurEffect(self):
-        """Apply a blur effect to the image"""
+        """Applies a Gaussian blur effect to the currently loaded image.
+    
+        The method converts the current QImage to OpenCV format, processes it in a background thread
+        using BlurWorkerForBackgroundWork, and updates the UI when complete. The blur button is
+        disabled during processing.
+    
+        Raises:
+            No direct exceptions, but errors are handled through the onError callback
+        """
         print("Applying blur effect")
         # ? Aqui debe empezar la implementacion del efecto de Blur
         imageModifiedWithin: QImage = self.imageManager.internal_normal_image_holder
@@ -115,7 +132,15 @@ class LeftSideImageModificationPane(QWidget):
             self.blurButton.setEnabled(False)
 
     def applyNoiseEffect(self):
-        """Apply a noise effect to the image"""
+        """Applies a random noise effect to the currently loaded image.
+    
+        The method converts the current QImage to OpenCV format, adds Gaussian noise in a background
+        thread using NoiseWorkerForBackgroundWork, and updates the UI when complete. The noise button
+        is disabled during processing.
+    
+        Raises:
+            No direct exceptions, but errors are handled through the onError callback
+        """
         print("Applying noise effect")
         # ? Aqui debe empezar la implementacion del efecto de Noise
         imageModifiedWithin: QImage = self.imageManager.internal_normal_image_holder
@@ -131,7 +156,15 @@ class LeftSideImageModificationPane(QWidget):
             # ? Desactivamos el boton de noise
             self.noiseButton.setEnabled(False)
     def applyBWEffect(self):
-        """Apply a black and white effect to the image"""
+        """Converts the currently loaded image to black and white.
+    
+        The method converts the current QImage to OpenCV format, processes it to binary format
+        in a background thread using BlackAndWhiteForBackgroundWork, and updates the UI when complete.
+        The B&W button is disabled during processing.
+    
+        Raises:
+            No direct exceptions, but errors are handled through the onError callback
+        """
         print("Applying black & white effect")
         # ? Aqui debe empezar la implementacion del efecto de blanco y negro
         imageModifiedWithin: QImage = self.imageManager.internal_normal_image_holder
@@ -147,7 +180,15 @@ class LeftSideImageModificationPane(QWidget):
             # ? Desactivamos el boton de blanco y negro
             self.bwButton.setEnabled(False)
     def applyDistortionEffect(self):
-        """Apply a distortion effect to the image"""
+        """Applies a wave distortion effect to the currently loaded image.
+    
+        The method converts the current QImage to OpenCV format, applies sinusoidal distortion
+        in a background thread using DistortionWorkerForBackgroundWork, and updates the UI when complete.
+        The distortion button is disabled during processing.
+    
+        Raises:
+            No direct exceptions, but errors are handled through the onError callback
+        """
         print("Applying distortion effect")
         # ? Aqui debe empezar la implementacion del efecto de distorcion
         imageModifiedWithin: QImage = self.imageManager.internal_normal_image_holder
@@ -222,6 +263,19 @@ class LeftSideImageModificationPane(QWidget):
             print("Error in the result of the distortion effect")
             print(e)
 class BlurWorkerForBackgroundWork(QThread):
+    """Background worker thread for applying Gaussian blur to images.
+
+    This worker applies a Gaussian blur effect to the input image using OpenCV's GaussianBlur function.
+
+    Attributes:
+        onSuccessfullyFinished (pyqtSignal): Signal emitted with processed image
+        onErrorCondition (pyqtSignal): Signal emitted with error message
+
+    Args:
+        image (np.ndarray): Input image in OpenCV format
+        kernel_size (tuple): Size of Gaussian kernel (default: (33, 33))
+        sigma (int): Gaussian kernel standard deviation (default: 0)
+    """
     # ? Signal to emit the processed image
     onSuccessfullyFinished: pyqtSignal = pyqtSignal(np.ndarray)
     onErrorCondition: pyqtSignal = pyqtSignal(str)
@@ -241,6 +295,19 @@ class BlurWorkerForBackgroundWork(QThread):
 
 
 class NoiseWorkerForBackgroundWork(QThread):
+    """Background worker thread for applying noise to images.
+
+    This worker adds Gaussian noise to the input image using NumPy's random normal distribution.
+
+    Attributes:
+        onSuccessfullyFinished (pyqtSignal): Signal emitted with processed image
+        onErrorCondition (pyqtSignal): Signal emitted with error message
+
+    Args:
+        image (np.ndarray): Input image in OpenCV format
+        mean (int): Mean of the Gaussian noise (default: 0)
+        std (int): Standard deviation of the noise (default: 25)
+    """
     # https://www.askpython.com/python/examples/adding-noise-images-opencv
     # ? Signals to emit the processed image
     onSuccessfullyFinished: pyqtSignal = pyqtSignal(np.ndarray)
@@ -265,6 +332,18 @@ class NoiseWorkerForBackgroundWork(QThread):
 
 
 class BlackAndWhiteForBackgroundWork(QThread):
+    """Background worker thread for converting images to black and white.
+
+    This worker converts the input image to grayscale and then applies binary thresholding
+    to create a black and white effect.
+
+    Attributes:
+        onSuccessfullyFinished (pyqtSignal): Signal emitted with processed image
+        onErrorCondition (pyqtSignal): Signal emitted with error message
+
+    Args:
+        image (np.ndarray): Input image in OpenCV format
+    """
     # https://nulldog.com/opencv-image-to-black-and-white-conversion
     # ? Signals to emit the processed image
     onSuccessfullyFinished: pyqtSignal = pyqtSignal(np.ndarray)
@@ -287,6 +366,20 @@ class BlackAndWhiteForBackgroundWork(QThread):
             self.onErrorCondition.emit(str(e))
 
 class DistortionWorkerForBackgroundWork(QThread):
+    """Background worker thread for applying wave distortion to images.
+
+    This worker applies a sinusoidal wave distortion effect to the input image using
+    OpenCV's remap function.
+
+    Attributes:
+        onSuccessfullyFinished (pyqtSignal): Signal emitted with processed image
+        onErrorCondition (pyqtSignal): Signal emitted with error message
+
+    Args:
+        image (np.ndarray): Input image in OpenCV format
+        wave_amplitude (int): Amplitude of the wave distortion (default: 10)
+        wave_frequency (int): Frequency of the wave distortion (default: 10)
+    """
     # https://github.com/Eman-Bandesha/Wave-Effect-in-Images-using-OpenCV/blob/main/wave_efffects_using_opencv.ipynb
     #? Signals to emit the processed image
     onSuccessfullyFinished: pyqtSignal = pyqtSignal(np.ndarray)

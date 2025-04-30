@@ -22,8 +22,22 @@ from Views.UIPanels.ImagePreviewCenterPane import CenterSidePreview
 
 
 class ImageSenseMainUIApplication(QMainWindow):
+    """
+    Main application window class for the ImageSense application.
+    
+    This class serves as the primary container for the application's user interface,
+    managing the layout and integration of various panels for image modification,
+    preview, and analysis.
+    """
 
     def __init__(self):
+        """
+        Initialize the ImageSense main application window.
+    
+        Sets up the main window by creating an ImageManager instance, configuring
+        the central widget, initializing the UI components, and establishing signal
+        connections for the toolbar.
+        """
         super().__init__()
         self.imageManager: ImageManager = ImageManager()
         self.centralWidgetForLayouts: QWidget = QWidget()
@@ -33,6 +47,18 @@ class ImageSenseMainUIApplication(QMainWindow):
         self.__connect_signals_from_toolbar__()
 
     def __init_UI__(self):
+        """
+        Initialize and configure the user interface components.
+    
+        Sets up the main window properties, creates the layout structure,
+        and configures three main panels:
+        - Left panel for image modification
+        - Middle panel for image preview
+        - Right panel for image analysis
+        
+        The method also establishes the sizing policies and visual styling
+        for each panel and the overall layout.
+        """
         #? 1. En primera instancia, definimos el tamano de la UI en general, definiendo titulos.
         self.setWindowTitle("ImageSense ― Analyze and Modify your Images")
         self.setBaseSize(1024,768); self.setMinimumSize(1024,768)
@@ -82,6 +108,21 @@ class ImageSenseMainUIApplication(QMainWindow):
         self.centralWidget().setLayout(vBoxForGeneralLayout)
 
     def __connect_signals_from_toolbar__(self) -> None:
+        """
+        Establish signal connections between UI components.
+    
+        Connects various signals and slots between the toolbar, ImageManager,
+        and different panels of the application. This includes:
+        - Image loading signals from toolbar to ImageManager
+        - Reset signals for clearing image previews
+        - Image saving signals
+        - Update signals for preview and actual image displays
+        - Modification signals between left panel and preview
+        - Analysis signals from right panel
+    
+        Returns:
+            None
+        """
         #? 1. Nos Conectamos al toolbar para manejar sus eventos
         toolbarInApplication = self.findChild(CustomToolbar)
         if toolbarInApplication:

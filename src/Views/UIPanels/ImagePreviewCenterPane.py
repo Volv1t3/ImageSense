@@ -16,16 +16,34 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QSizePolicy, QLa
 
 
 class CenterSidePreview(QWidget):
+    """
+    A PyQt5 widget class that manages the central image preview panel of the application.
+    
+    This class provides a layout with two image display areas - one for the original image
+    and another for the transformed image. It handles image loading, display, and resizing
+    while maintaining aspect ratio.
+    """
 
     def __init__(self):
+        """
+        Initialize the CenterSidePreview widget.
+    
+        Sets up the initial state with empty image holders and calls the UI initialization.
+        """
         super().__init__()
         self.actual_image: QImage = None
         self.transformed_image: QImage = None
         self.__init_UI__()
     def __init_UI__(self) -> None:
         """
-        Este metodo se encarga de definir el formato de la UI interna para el panel del centro, la idea es seguir un layout
-        prestablecido en donde se tiene dos imagenes, la primera imagen representa la entrada y la segunda la salida
+        Initialize the UI components and layout of the preview panel.
+    
+        Creates a vertical layout containing two image containers: one for the original image
+        and another for the transformed image. Sets up styling, sizes, and placeholder labels
+        for both containers.
+    
+        Returns:
+            None
         """
         self.mainLayoutWidget = QWidget(self)
         self.mainLayoutWidget.setMinimumWidth(325)
@@ -128,6 +146,18 @@ class CenterSidePreview(QWidget):
         self.setLayout(main_layout)
 
     def resizeEvent(self, a0: QResizeEvent):
+        """
+        Handle widget resize events to maintain proper image display.
+    
+        Scales both the original and transformed images to fit their containers while
+        maintaining aspect ratio when the widget is resized.
+    
+        Args:
+            a0 (QResizeEvent): The resize event containing the new size information
+    
+        Returns:
+            None
+        """
         super().resizeEvent(a0)
 
         #? 1. Si tenemos cargada una imagen entonces intentemos cambiar su tamano
@@ -154,6 +184,18 @@ class CenterSidePreview(QWidget):
 
 
     def updateDisplay(self, preview_image_from_the_outide: QImage) -> None:
+        """
+        Update both original and transformed image displays with a new image.
+    
+        Scales the provided image to fit the containers while maintaining aspect ratio
+        and updates both display areas with the same image.
+    
+        Args:
+            preview_image_from_the_outide (QImage): The new image to display
+    
+        Returns:
+            None
+        """
         if preview_image_from_the_outide and not preview_image_from_the_outide.isNull():
             print(f"Displaying image: {preview_image_from_the_outide.width()}x{preview_image_from_the_outide.height()}")
             self.actual_image = preview_image_from_the_outide
@@ -176,17 +218,29 @@ class CenterSidePreview(QWidget):
 
     def resetActualImageAndPreview(self) -> None:
         """
-        Este metodo se encarga de resetear la imagen actual y la
-        imagen de preview, ademas de actualizar el texto de los
-        labels de las imagenes.
+        Reset both the original and preview images to their initial state.
+    
+        Clears the current images and resets the display labels to their
+        default "No Image" messages.
+    
+        Returns:
+            None
         """
         self.original_image_label.setText("No Image Loaded")
         self.transformed_image_label.setText("No Image Preview")
         self.updateDisplay(None)
     def updatePreviewImage(self, image: QImage):
         """
-        Este metodo se encarga de actualizar la imagen de preview, ademas de actualizar el texto de los labels de las
-        imagenes.
+        Update only the transformed image preview.
+    
+        Updates the transformed image container with a new image while maintaining
+        the original image display unchanged.
+    
+        Args:
+            image (QImage): The new image to display in the transformed preview
+    
+        Returns:
+            None
         """
         if image and not image.isNull():
             self.transformed_image = image

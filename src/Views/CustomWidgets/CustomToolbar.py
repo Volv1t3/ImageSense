@@ -15,16 +15,43 @@ from Models.styles import Styles
 
 
 class CustomToolbar(QWidget):
-    #? Declaramos signals para que la main UI pueda interceptar y realizar la carga de las imagenes al programa
+    """
+    A custom toolbar widget that provides file and preview control functionality.
+    
+    This class implements a custom toolbar with buttons for file operations and image preview controls.
+    It emits signals for image operations that can be intercepted by the main UI.
+    
+    Signals:
+        image_opened_signal (str): Emitted when an image is opened, contains the file path
+        image_saved_signal (str): Emitted when an image is saved, contains the file path
+        reset_preview_image_signal: Emitted when the preview image needs to be reset
+    """
     image_opened_signal: pyqtSignal = pyqtSignal(str)
     image_saved_signal: pyqtSignal = pyqtSignal(str)
     reset_preview_image_signal: pyqtSignal = pyqtSignal()
 
     def __init__(self):
+        """
+        Initialize the CustomToolbar widget.
+        
+        Calls the parent class constructor and initializes the UI components.
+        """
         super().__init__()
         self.__init_UI__()
 
     def __init_UI__(self):
+        """
+        Initialize the user interface components of the toolbar.
+    
+        This method sets up the main UI components including:
+        - Setting size policy and styles
+        - Creating and configuring file control buttons and menus
+        - Creating and configuring preview control buttons and menus
+        - Setting up the layout and adding the application title
+    
+        The toolbar layout consists of two main buttons (File Controls and Preview Controls)
+        aligned to the left, and the application name "ImageSense" aligned to the right.
+        """
         #? 1. Inicializamos la UI de la toolbar definiendo las caracteristicas principales de la vista
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         self.setStyleSheet(Styles.FlOATING_TOOLBAR)
@@ -74,15 +101,46 @@ class CustomToolbar(QWidget):
         self.setLayout(layoutForButtonsAndText)
 
     def mostrarPreviewMenuAlUsuario(self) -> None:
+        """
+        Display the preview control menu to the user.
+        
+        Shows a popup menu below the preview control button with options for managing the preview image.
+        The menu appears at the bottom-left corner of the preview control button.
+    
+        Returns:
+            None
+        """
         position = self.buttonForPreviewControl.mapToGlobal(self.buttonForPreviewControl.rect().bottomLeft())
         self.menuForPreviewControl.popup(position)
     def mostrarMenuAlUsuario(self) -> None:
+        """
+        Display the file control menu to the user.
+        
+        Shows a popup menu below the file control button with options for opening and saving images.
+        The menu appears at the bottom-left corner of the file control button.
+    
+        Returns:
+            None
+        """
         position = self.buttonForFileControl.mapToGlobal(self.buttonForFileControl.rect().bottomLeft())
         self.menuForFileControl.popup(position)
 
 
     def guardarImagenDelUsuario(self) -> None:
-        """Metodo que permite guardar una imagen del usuario, basado en un nombre o sobrescribiendo una imagen existente"""
+        """
+        Save the current image to disk.
+        
+        Opens a file dialog allowing the user to select a location and filename to save the image.
+        Supports PNG, JPG, and JPEG formats. If no extension is provided, defaults to PNG.
+        
+        The method will emit image_saved_signal with the selected file path when a file is successfully selected.
+    
+        Returns:
+            None
+    
+        Signals:
+            image_saved_signal (str): Emitted with the selected save file path
+        """
         fileDialogForSavingImage = QFileDialog(self,
                                                "Guardar la imagen modificada como...",
                                                os.path.expanduser('~'))
@@ -105,7 +163,20 @@ class CustomToolbar(QWidget):
                 self.image_saved_signal.emit(selectedFilePath)
 
     def abrirImagenDelUsuario(self) -> None:
-        """Metodo que permite abrir una imagen del usuario desde el sistema"""
+        """
+        Open an image file from disk.
+        
+        Opens a file dialog allowing the user to select an image file to open.
+        Supports PNG, JPG, and JPEG formats. The dialog starts in the user's home directory.
+        
+        The method will emit image_opened_signal with the selected file path when a file is successfully selected.
+    
+        Returns:
+            None
+    
+        Signals:
+            image_opened_signal (str): Emitted with the selected image file path
+        """
         fileDialogToOpenImage = QFileDialog(self,
                                                "Guardar la imagen modificada como...",
                                                os.path.expanduser('~'))
@@ -127,4 +198,16 @@ class CustomToolbar(QWidget):
                 print(selectedFilePath)
                 self.image_opened_signal.emit(selectedFilePath)
     def buttonForPreviewControlHandler(self) -> None:
+        """
+        Handle the preview control button action.
+        
+        This method is called when the reset preview option is selected from the preview control menu.
+        Emits the reset_preview_image_signal to reset the preview image to its original state.
+    
+        Returns:
+            None
+    
+        Signals:
+            reset_preview_image_signal: Emitted to trigger preview image reset
+        """
         self.reset_preview_image_signal.emit()
