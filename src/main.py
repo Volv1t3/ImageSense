@@ -11,6 +11,21 @@ from Views.UIPanels.ImageSenseMainUI import ImageSenseMainUIApplication
 
 
 def main()-> None:
+    """Initializes and launches the ImageSense desktop application.
+    
+    This function serves as the entry point for the ImageSense application. It performs
+    the following operations:
+    1. Creates a QApplication instance for managing the application lifecycle
+    2. Instantiates the main application window
+    3. Displays the window
+    4. Enters the application's main event loop
+    
+    The function will block until the application is terminated, at which point it ensures
+    a clean shutdown through sys.exit().
+    
+    Returns:
+        None: This function doesn't return explicitly, it exits the program through sys.exit()
+    """
     application: QApplication = QApplication([])
     window: ImageSenseMainUIApplication = ImageSenseMainUIApplication()
     window.show()
