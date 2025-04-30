@@ -327,6 +327,7 @@ class RightSideImageAnalysisPane(QWidget):
 
     def onObjectDetectionResult(self, returnedImage: QImage):
         print("Object Detection Result Received")
+        print(f"Image is null={False if returnedImage else True}")
         self.preview_image_needs_to_be_updated.emit(returnedImage)
 
 
@@ -450,6 +451,7 @@ class ObjectDetectionWorkerThread(QThread):
                         class_ids.append(class_id)
 
             indexes = cv2.dnn.NMSBoxes(boxes, confianza, 0.5, 0.4)
+            print(f"Found {len(indexes)} objects")
             margin = 100
             # Draw boxes
             font = cv2.FONT_HERSHEY_SIMPLEX
@@ -462,11 +464,11 @@ class ObjectDetectionWorkerThread(QThread):
                     h = max(margin, min(h, height - y - margin))
                     label = str(class_labels[class_ids[i]])
                     confidence = confianza[i]
-                    color = colors[class_ids[i]]
+                    color = colors[class_ids[i]].astype(int).tolist()
 
                     # Draw rectangle
                     cv2.rectangle(
-                        original_image,
+                        bgr_image,
                         (x, y),
                         (x + w, y + h),
                         color,
@@ -475,7 +477,7 @@ class ObjectDetectionWorkerThread(QThread):
 
                     # Draw label
                     cv2.putText(
-                        original_image,
+                        bgr_image,
                         f'{label} {confidence:.2f}',
                         (x, y - 10),
                         font,
@@ -485,7 +487,7 @@ class ObjectDetectionWorkerThread(QThread):
                     )
 
                     # Convert back to RGBA for Qt
-            rgba_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGBA)
+            rgba_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGBA)
             height, width, channel = rgba_image.shape
             bytes_per_line = 4 * width
 

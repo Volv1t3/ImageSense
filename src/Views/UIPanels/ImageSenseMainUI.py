@@ -112,4 +112,4 @@ class ImageSenseMainUIApplication(QMainWindow):
         rightSidePanelInApplication = self.findChild(rightPane.RightSideImageAnalysisPane)
         if rightSidePanelInApplication:
             rightSidePanelInApplication.preview_image_needs_to_be_updated.connect(self.imageManager.connect_to_left_pane_modification_image_storage)
-            rightSidePanelInApplication.preview_image_needs_to_be_updated.connect(self.middlePanel.updatePreviewImage)
+
